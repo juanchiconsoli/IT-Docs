@@ -1,2 +1,9 @@
 /venv/
 /main.py
+/.idea/.gitignore
+/.idea/IT-Docs.iml
+/.idea/misc.xml
+/.idea/modules.xml
+/.idea/inspectionProfiles/profiles_settings.xml
+/.idea/vcs.xml
+/ItDocs/db.sqlite3
