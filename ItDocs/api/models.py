@@ -66,6 +66,7 @@ class Credential(models.Model):
     service_id = models.ForeignKey(Service, on_delete=models.CASCADE)
     username = models.CharField(max_length=30)
     password = models.CharField(max_length=30)
+    group = models.ForeignKey('Group', null=True, on_delete=models.SET_NULL)
     key = models.CharField(max_length=1024)
 
     def __str__(self):
@@ -106,8 +107,6 @@ class AdShare(models.Model):
 class Group(models.Model):
     name = models.CharField(max_length=30)
     domain = models.ForeignKey(ActiveDirectory, on_delete=models.CASCADE)
-
-    # USERS ???
 
     def __str__(self):
         return self.name
