@@ -73,6 +73,7 @@ class Credential(models.Model):
 
 
 class MailServer(Service):
+    type = 'e-Mail'
     smtp_server = models.CharField(max_length=30)
     imap_server = models.CharField(max_length=30)
     provider = models.CharField(max_length=30)
@@ -83,6 +84,7 @@ class MailServer(Service):
 
 
 class ActiveDirectory(Service):
+    type = 'AD'
     domain = models.CharField(max_length=30, primary_key=True)
     domain_controller_ip = models.GenericIPAddressField
     virtualization = models.BooleanField
@@ -93,9 +95,9 @@ class ActiveDirectory(Service):
 
 
 class AdShare(models.Model):
-    path = models.CharField(max_length=200, primary_key=True)
+    path = models.FilePathField(max_length=200, primary_key=True)
     domain = models.ForeignKey(ActiveDirectory, on_delete=models.CASCADE)
-    name = models.CharField
+    name = models.CharField(max_length=30)
 
     def __str__(self):
         return self.name
@@ -152,6 +154,7 @@ class Vpn(Service):
 
 
 class Pbx(Service):
+    type = 'PBX'
     hostname = models.CharField(max_length=30)
     on_premise = models.BooleanField()
     server_address = models.GenericIPAddressField()
@@ -209,6 +212,7 @@ class Schedule(models.Model):
 
 
 class Network(Service):
+    type = 'Net'
     NET_TYPE = (
         ('LAN', 'Local Area Network'),
         ('WAN', 'Wide Area Network')
@@ -292,6 +296,7 @@ class Controller(Hardware):
 
 
 class Wifi(Service):
+    type = 'Wifi'
     SSID = models.CharField(max_length=50)
     password = models.CharField(max_length=30)
     vlan = models.ForeignKey(Vlan, on_delete=models.CASCADE)
@@ -312,6 +317,7 @@ class Nas(Hardware):
 
 
 class Backup(Service):
+    type = 'Bck-Up'
     BCK_TYPE = (
         ('Rsync', 'rsync'),
         ('HyperBackup', 'Hyper-Backup'),
@@ -332,7 +338,8 @@ class Script(models.Model):
     program = models.TextField()
 
 
-class Automation(Hardware):
+class Automation(Hardware, Service):
+    type = 'Auto'
     config_file = models.TextField()
     scripts = models.ForeignKey(Script, on_delete=models.CASCADE)
 
@@ -354,6 +361,7 @@ class ConfigFile(models.Model):
 
 
 class App(Service):
+    type = 'App'
     name = models.CharField(max_length=50)
     op_sys = models.CharField(max_length=30)
     ssh_key = models.CharField(max_length=20)
