@@ -1,16 +1,27 @@
 from django.db import models
+from pygments.lexers import get_all_lexers
+from pygments.styles import get_all_styles
+
+
+LEXERS = [item for item in get_all_lexers() if item[1]]
+LANGUAGE_CHOICES = sorted([(item[1][0], item[0]) for item in LEXERS])
+STYLE_CHOICES = sorted([(item, item) for item in get_all_styles()])
 
 
 class Client(models.Model):
     name = models.CharField(max_length=30)
     phone = models.CharField(max_length=10)
-    maintenance = models.BooleanField
+    maintenance = models.BooleanField()
 
     def __str__(self):
         return self.name
 
+    class Meta:
+        ordering = ['name']
+
 
 class Address(models.Model):
+    site = models.ForeignKey('Site', related_name='address', on_delete=models.CASCADE)
     number = models.IntegerField()
     street = models.CharField(max_length=30)
     zip_code = models.IntegerField()
@@ -23,11 +34,11 @@ class Address(models.Model):
 
 
 class Site(models.Model):
-    client_id = models.ForeignKey(Client, on_delete=models.CASCADE)
-    address = models.ForeignKey(Address, on_delete=models.CASCADE)
+    name = models.CharField(max_length=255)
+    client = models.ForeignKey(Client, related_name='sites', on_delete=models.CASCADE)
 
     def __str__(self):
-        return f'{self.address}'
+        return f'{self.name}'
 
 
 class Service(models.Model):
@@ -43,11 +54,11 @@ class Service(models.Model):
         ('App', 'Application')
     )
     type = models.CharField(max_length=10, choices=TYPES)
-    site_id = models.ForeignKey(Site, on_delete=models.CASCADE)
-    client_id = models.ForeignKey(Client, on_delete=models.CASCADE)
+    site = models.ForeignKey(Site, on_delete=models.CASCADE)
+    client = models.ForeignKey(Client, on_delete=models.CASCADE)
 
     def __str__(self):
-        return f'{self.client_id} {self.type}'
+        return f'{self.client} {self.type}'
 
 
 class User(models.Model):
@@ -62,12 +73,12 @@ class User(models.Model):
 
 
 class Credential(models.Model):
-    user_id = models.ForeignKey(User, on_delete=models.CASCADE)
-    service_id = models.ForeignKey(Service, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    service = models.ForeignKey(Service, on_delete=models.CASCADE)
     username = models.CharField(max_length=30)
     password = models.CharField(max_length=30)
-    group = models.ForeignKey('Group', null=True, on_delete=models.SET_NULL)
-    key = models.CharField(max_length=1024)
+    group = models.ForeignKey('Group', blank=True, null=True, on_delete=models.SET_NULL)
+    key = models.CharField(max_length=1024, blank=True, null=True)
 
     def __str__(self):
         return self.username
@@ -96,7 +107,7 @@ class ActiveDirectory(Service):
 
 
 class AdShare(models.Model):
-    path = models.FilePathField(max_length=200, primary_key=True)
+    path = models.CharField(max_length=200, primary_key=True)
     domain = models.ForeignKey(ActiveDirectory, on_delete=models.CASCADE)
     name = models.CharField(max_length=30)
 
@@ -174,7 +185,7 @@ class Queue(models.Model):
 
 class Extension(models.Model):
     number = models.IntegerField()
-    user_id = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
     pbx = models.ForeignKey(Pbx, on_delete=models.CASCADE)
     display_name = models.CharField(max_length=100)
     password = models.CharField(max_length=100)
@@ -200,7 +211,7 @@ class Trunk(models.Model):
 
 class Ivr(models.Model):
     pbx = models.ForeignKey(Pbx, on_delete=models.CASCADE)
-    diagram_id = models.IntegerField()
+    diagram_path = models.IntegerField()
 
 
 class Schedule(models.Model):
@@ -220,13 +231,13 @@ class Network(Service):
     subnet_mask = models.GenericIPAddressField()
     network_address = models.GenericIPAddressField()
     dhcp_server_address = models.GenericIPAddressField()
-    vlan_id = models.IntegerField()
+    vlan_tag = models.IntegerField(default=1)
     domain_name = models.CharField(max_length=50)
     dns_address = models.GenericIPAddressField()
     net_type = models.CharField(max_length=20, choices=NET_TYPE)
 
     def __str__(self):
-        return f'{self.type} {self.client_id.__str__()}'
+        return f'{self.type} {self.client.__str__()}'
 
 
 class Wan(Network):
@@ -248,16 +259,16 @@ class Wan(Network):
     technology = models.CharField(max_length=10, choices=TECH)
 
     def __str__(self):
-        return f'WAN {self.provider} {self.client_id.__str__()}'
+        return f'WAN {self.provider} {self.client.__str__()}'
 
 
 class Vlan(models.Model):
     tag = models.IntegerField(primary_key=True)
-    network_id = models.ForeignKey(Network, on_delete=models.CASCADE)
+    network = models.ForeignKey(Network, on_delete=models.CASCADE)
     description = models.TextField()
 
     def __str__(self):
-        return f'VLAN {self.tag} {self.network_id.client_id.__str__()}'
+        return f'VLAN {self.tag} {self.network.client.__str__()}'
 
 
 class Hardware(models.Model):
@@ -265,20 +276,19 @@ class Hardware(models.Model):
     model = models.CharField(max_length=50)
     username = models.CharField(max_length=30)
     password = models.CharField(max_length=30)
-    client_id = models.ForeignKey(Client, on_delete=models.CASCADE)
+    client = models.ForeignKey(Client, on_delete=models.CASCADE)
+    site = models.ForeignKey(Site, on_delete=models.CASCADE)
 
     def __str__(self):
-        return f'{self.brand} {self.client_id.__str__()}'
+        return f'{self.brand} {self.client.__str__()} {self.pk}'
 
 
 class Router(Hardware):
-    site_id = models.ForeignKey(Site, on_delete=models.CASCADE)
     management_ip = models.GenericIPAddressField()
     config_file = models.TextField()
 
 
 class Switch(Hardware):
-    site_id = models.ForeignKey(Site, on_delete=models.CASCADE)
     management_ip = models.GenericIPAddressField()
     config_file = models.TextField()
 
@@ -299,20 +309,21 @@ class Wifi(Service):
     SSID = models.CharField(max_length=50)
     password = models.CharField(max_length=30)
     vlan = models.ForeignKey(Vlan, on_delete=models.CASCADE)
-    controller = models.ForeignKey(Controller, on_delete=models.CASCADE)
+    controller = models.ForeignKey(Controller, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
-        return f'{self.SSID} {self.client_id.__str__()}'
+        return f'{self.SSID} {self.client.__str__()}'
 
 
 class Ap(Hardware):
     ssid = models.ForeignKey(Wifi, on_delete=models.CASCADE)
+    hostname = models.CharField(max_length=30)
     management_ip = models.GenericIPAddressField()
 
 
 class Nas(Hardware):
     management_ip = models.GenericIPAddressField()
-    quick_connect = models.CharField(max_length=30)
+    quick_connect = models.CharField(max_length=30, blank=True, null=True)
 
 
 class Backup(Service):
@@ -325,22 +336,32 @@ class Backup(Service):
         ('Veeam', 'Veeam')
     )
     nas = models.ForeignKey(Nas, on_delete=models.CASCADE)
-    schedule = models.ForeignKey(Schedule, on_delete=models.CASCADE)
+    schedule = models.ForeignKey(Schedule, on_delete=models.CASCADE, null=True, blank=True)
     bck_type = models.CharField(max_length=15, choices=BCK_TYPE)
 
     def __str__(self):
-        return f'{self.type} {self.client_id.__str__()}'
+        return f'{self.type} {self.client.__str__()}'
 
 
 class Script(models.Model):
-    language = models.CharField(max_length=30)
-    program = models.TextField()
+    created = models.DateTimeField(auto_now_add=True)
+    title = models.CharField(max_length=100, blank=True, default='')
+    linenos = models.BooleanField(default=False)
+    language = models.CharField(choices=LANGUAGE_CHOICES, default='python', max_length=100)
+    style = models.CharField(choices=STYLE_CHOICES, default='friendly', max_length=100)
+    code = models.TextField()
+
+    class Meta:
+        ordering = ['created']
 
 
-class Automation(Hardware, Service):
+class Automation(Service):
     type = 'Auto'
     config_file = models.TextField()
     scripts = models.ForeignKey(Script, on_delete=models.CASCADE)
+    brand = models.CharField(max_length=50)
+    model = models.CharField(max_length=50)
+    credentials = models.ForeignKey(Credential, null=True, on_delete=models.SET_NULL)
 
 
 class Nvr(Hardware):
@@ -349,7 +370,7 @@ class Nvr(Hardware):
 
 
 class Camera(Hardware):
-    nvr_id = models.ForeignKey(Nvr, on_delete=models.CASCADE)
+    storage = models.ForeignKey(Nvr, on_delete=models.CASCADE)
 
 
 class ConfigFile(models.Model):
@@ -368,4 +389,4 @@ class App(Service):
     config_file = models.ForeignKey(ConfigFile, on_delete=models.CASCADE)
 
     def __str__(self):
-        return f'{self.name} {self.client_id.__str__()}'
+        return f'{self.name} {self.client.__str__()}'
